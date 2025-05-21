@@ -90,8 +90,8 @@ nlu:
     - am I talking to a bot?
     - am I talking to a human?
 
-- intent: ask_product_count
-    examples: |
+- intent: count_products
+  examples: |
       - How many items do I currently own?
       - What's my product count?
       - Tell me how many products I have.

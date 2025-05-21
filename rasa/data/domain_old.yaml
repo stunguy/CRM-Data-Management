@@ -1,0 +1,32 @@
+version: "3.0"
+
+intents:
+  - greet
+  - goodbye
+  - affirm
+  - count_products
+
+responses:
+  utter_greet:
+    - text: "Hello! How can I help you today?"
+
+  utter_goodbye:
+    - text: "Goodbye! Have a great day!"
+
+  utter_affirm:
+    - text: "Great!"
+  
+  utter_count_products:
+    - text: "You currently have {count} products."
+
+slots:
+  entity_type:
+    type: text
+    influence_conversation: false
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true
+
+action:
+  -action_query_database

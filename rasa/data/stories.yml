@@ -29,8 +29,7 @@ stories:
   - intent: deny
   - action: utter_goodbye
 
-stories:
-- story:query entity count
+- story: count products story
   steps:
-  - intent: ask_product_count
+  - intent: count_products
   - action: action_query_database

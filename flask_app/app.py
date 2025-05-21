@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file,flash,jsonify,render_template,redirect,flash
+from flask import Flask, render_template, request, redirect, url_for, send_file,flash,jsonify
 from flask_mail import Mail, Message
 from werkzeug.exceptions import abort
 import sqlite3

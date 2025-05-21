@@ -1,0 +1,49 @@
+version: "3.1"
+
+intents:
+  - greet
+  - goodbye
+  - affirm
+  - count_products
+  - bot_challenge
+  - mood_great
+  - mood_unhappy
+  - deny
+
+responses:
+  utter_greet:
+    - text: "Hello! How can I help you today?"
+
+  utter_goodbye:
+    - text: "Goodbye! Have a great day!"
+
+  utter_affirm:
+    - text: "Great!"
+  
+  utter_count_products:
+    - text: "You currently have {count} products."
+  
+  utter_iamabot:
+    - text: "I am a bot, how can I help?"
+  utter_happy:
+    - text: "Glad to hear that!"
+  utter_cheer_up:
+    - text: "Cheer up! Everything will be fine."
+  utter_did_that_help:
+    - text: "Did that help you?"
+
+slots:
+  entity_type:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: entity_type
+
+actions:
+  - action_query_database
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true
+
