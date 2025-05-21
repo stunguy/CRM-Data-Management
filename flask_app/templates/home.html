@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Home</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body>
+    <header>
+        <div class="header-content">
+            <img src="{{ url_for('static', filename='images/retex.png') }}" alt="Logo" class="header-logo">
+            <h1>Retex Data Management System</h1>
+        </div>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="{{ url_for('products') }}">Products</a></li>
+            <li><a href="{{ url_for('customers') }}">Customers</a></li>
+            <li><a href="{{ url_for('employees') }}">Employees</a></li>
+            <li><a href="{{ url_for('spares') }}">Spares</a></li>
+            <li><a href="{{ url_for('service_data') }}">Service Records</a></li>
+            <li><a href="{{ url_for('export') }}">Export Data to Google Drive</a></li>
+            <li class="dropdown">
+                <a href="javascript:void(0)">Export Data to Local Machine</a>
+                <div class="dropdown-content">
+                    <a href="{{ url_for('export_data', table_name='customers') }}">Export Customers</a>
+                    <a href="{{ url_for('export_data', table_name='spares') }}">Export Spares</a>
+                    <a href="{{ url_for('export_data', table_name='products') }}">Export Products</a>
+                    <a href="{{ url_for('export_data', table_name='employees') }}">Export Employees</a>
+                    <a href="{{ url_for('export_data', table_name='service_data') }}">Export Service Data</a>
+                </div>
+            </li>
+        </ul>
+    </nav>
+    <main>
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                <ul>
+                    {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+        {% endwith %}
+        <div class="content-container">
+            <div class="table-wrapper">
+                <div class="table-container">
+                    <h2>Top 10 Products Sold</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product Info</th>
+                                <th>Customers_Using</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product_info, Customers_Using in top_product_data %}
+                            <tr>
+                                <td>{{ product_info }}</td>
+                                <td>{{ Customers_Using }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-container">
+                    <h2>Top 10 Products Serviced</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product Info</th>
+                                <th>Service Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product_info, product_count in product_service_data %}
+                            <tr>
+                                <td>{{ product_info }}</td>
+                                <td>{{ product_count }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-container">
+                    <h2>Top Customers</h2>
+                    {% if top_customers %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Customer Name</th>
+                                <th>Product Count</th>
+                                <th>Product Names</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for customer in top_customers %}
+                            <tr>
+                                <td>{{ customer['customer_name'] }}</td>
+                                <td>{{ customer['product_count'] }}</td>
+                                <td>{{ customer['product_names'] }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p>No customers found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        </div>
+        <div class="bottom-container">
+            <div class="graph-container">
+                {{ graph|safe }}
+            </div>
+            <div class="open_Calls-container">
+                <h2>Open Calls</h2>
+                {% if open_Calls %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Customer Name</th>
+                            <th>Product Name</th>
+                            <th>Model Number</th>
+                            <th>Issue Date</th>
+                            <th>Status</th>
+                            <th>Is Warranty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for calls in open_Calls %}
+                        <tr>
+                            <td>{{ calls['customer_name'] }}</td>
+                            <td>{{ calls['product_name'] }}</td>
+                            <td>{{ calls['model_number'] }}</td>
+                            <td>{{ calls['issue_date'] }}</td>
+                            <td>{{ calls['status'] }}</td>
+                            <td>{{ calls['is_warranty'] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p>No open calls found.</p>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+</body>
+
+</html>

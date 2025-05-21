@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Data List</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <h1>Data List</h1>
+    <table>
+        <thead>
+            <tr>
+                {% for column in column_names %}
+                <th>{{ column }}</th>
+                {% endfor %}
+                </tr>
+        </thead>
+        <tbody>
+            {% for row in data %}
+            <tr>
+               {% for column in column_names %}
+               <td>{{ row[column] }}</td>
+               {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <br>
+    <form action="{{ url_for('add_employee') }}" method="post">
+        <h2>Add New Data</h2>
+        <label for="name">name:</label>
+        <input type="name" id="name" name="name" required><br>
+        <label for="Designation">Designation:</label>
+        <input type="designation" id="Designation" name="Designation" required><br>
+        <input type="submit" value="Add Data">
+    </form>
+    <br>
+    </body>
+</html>

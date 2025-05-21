@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Product Details</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .container {
+            width: 80%;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        h2 {
+            text-align: center;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Product Details</h2>
+        {% if product %}
+            <p><strong>Product Name:</strong> {{ product['product_name'] }}</p>
+            <p><strong>Model Number:</strong> {{ product['model_number'] }}</p>
+        {% else %}
+            <p>Product details not available.</p>
+        {% endif %}
+
+        {% if service_count %}
+            <p><strong>Number of Services:</strong> {{ service_count['service_count'] }}</p>
+        {% else %}
+            <p>Service count not available.</p>
+        {% endif %}
+
+        {% if customers %}
+            <h3>Customers Using This Product:</h3>
+            <ul>
+                {% for customer in customers %}
+                    <li>{{ customer['customer_name'] }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No companies found using this product.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

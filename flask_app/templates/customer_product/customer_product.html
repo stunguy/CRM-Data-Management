@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Data List</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Data List</h1>
+    <table>
+        <thead>
+            <tr>
+                <!-- Replace these headers with your actual column names -->
+                <th>product_id</th>
+                <th>product_name</th>
+		<th>model_number</th>
+                </tr>
+        </thead>
+        <tbody>
+            {% for row in data %}
+            <tr>
+                <!-- Replace these with your actual column names -->
+                <td>{{ row['product_id'] }}</td>
+                <td>{{ row['product_name'] }}</td>
+		<td>{{ row['model_number'] }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <br>
+    <form action="{{ url_for('add') }}" method="post">
+        <h2>Add New Data</h2>
+        <label for="product_name">product_Name:</label>
+        <input type="product_name" id="product_name" name="product_name" required><br>
+        <label for="model_number">model_number:</label>
+        <input type="model_number" id="model_number" name="model_number" required><br>
+        <input type="submit" value="Add Data">
+    </form>
+    <br>
+    <a href="{{ url_for('export_data') }}">Export to Excel</a>
+</body>
+</html>

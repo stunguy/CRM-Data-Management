@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Home</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body>
+    <header>
+        <div class="header-content">
+            <img src="{{ url_for('static', filename='images/retex.png') }}" alt="Logo" class="header-logo">
+            <h1>Retex Data Management System</h1>
+        </div>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="{{ url_for('products') }}">Products</a></li>
+            <li><a href="{{ url_for('customers') }}">Customers</a></li>
+            <li><a href="{{ url_for('employees') }}">Employees</a></li>
+            <li><a href="{{ url_for('spares') }}">Spares</a></li>
+            <li><a href="{{ url_for('service_data') }}">Service Records</a></li>
+            <li><a href="{{ url_for('export') }}">Export Data to Google Drive</a></li>
+            <li class="dropdown">
+                <a href="javascript:void(0)">Export Data to Local Machine</a>
+                <div class="dropdown-content">
+                    <a href="{{ url_for('export_data', table_name='customers') }}">Export Customers</a>
+                    <a href="{{ url_for('export_data', table_name='spares') }}">Export Spares</a>
+                    <a href="{{ url_for('export_data', table_name='products') }}">Export Products</a>
+                    <a href="{{ url_for('export_data', table_name='employees') }}">Export Employees</a>
+                    <a href="{{ url_for('export_data', table_name='service_data') }}">Export Service Data</a>
+                </div>
+            </li>
+        </ul>
+    </nav>

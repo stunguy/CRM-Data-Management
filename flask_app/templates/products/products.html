@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Product List</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <img src="{{ url_for('static', filename='images/retex.png') }}" alt="Logo" class="header-logo">
+            <h1>Product List</h1>
+            <div class="header-links">
+                <a class="home-link" href="{{ url_for('home') }}">Home</a>
+                <a class="add-product-link" href="{{ url_for('add_product') }}" target="_blank">Add Product</a>
+            </div>
+        </div>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="{{ url_for('products') }}">Products</a></li>
+            <li><a href="{{ url_for('customers') }}">Customers</a></li>
+            <li><a href="{{ url_for('employees') }}">Employees</a></li>
+            <li><a href="{{ url_for('spares') }}">Spares</a></li>
+            <li><a href="{{ url_for('service_data') }}">Service Records</a></li>
+            <li><a href="{{ url_for('export') }}">Export Data to Google Drive</a></li>
+            <li class="dropdown">
+                <a href="javascript:void(0)">Export Data to Local Machine</a>
+                <div class="dropdown-content">
+                    <a href="{{ url_for('export_data', table_name='customers') }}">Export Customers</a>
+                    <a href="{{ url_for('export_data', table_name='spares') }}">Export Spares</a>
+                    <a href="{{ url_for('export_data', table_name='products') }}">Export Products</a>
+                    <a href="{{ url_for('export_data', table_name='employees') }}">Export Employees</a>
+                    <a href="{{ url_for('export_data', table_name='service_data') }}">Export Service Data</a>
+                </div>
+            </li>
+        </ul>
+    </nav>
+    <div class="container">
+        
+        <a class="all-products-link" href="{{ url_for('products', show_all='true') }}">All Products</a>
+        <form method="get" action="{{ url_for('products') }}">
+            <label for="search">Search by Product Name:</label>
+            <input type="text" id="search" name="search" placeholder="Enter product name" value="{{ search }}">
+            <input type="submit" value="Search">
+        </form>
+        {% if products %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Product ID</th>
+                    <th>Product Name</th>
+                    <th>Model Number</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr>
+                    <td>{{ product['product_id'] }}</td>
+                    <td>{{ product['product_name'] }}</td>
+                    <td>{{ product['model_number'] }}</td>
+                    <td><a href="{{ url_for('product_details', product_id=product['product_id']) }}">View Details</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No products found.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

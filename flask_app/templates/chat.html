@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Chatbot</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #response { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>SQL Query Generator</h1>
+    <input type="text" id="query" placeholder="Enter your query here">
+    <button onclick="sendQuery()">Submit</button>
+    <div id="response"></div>
+
+    <script>
+        async function sendQuery() {
+            const query = document.getElementById('query').value;
+            const response = await fetch('/query', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: query })
+            });
+            const data = await response.json();
+            document.getElementById('response').innerText = data.sql_query;
+        }
+    </script>
+</body>
+</html>
