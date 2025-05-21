@@ -2,32 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SQL Chatbot</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        #response { margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <h1>SQL Query Generator</h1>
-    <input type="text" id="query" placeholder="Enter your query here">
-    <button onclick="sendQuery()">Submit</button>
-    <div id="response"></div>
-
+    <title>Chatbot Interface</title>
     <script>
-        async function sendQuery() {
-            const query = document.getElementById('query').value;
-            const response = await fetch('/query', {
+        async function sendMessage() {
+            const message = document.getElementById('userInput').value;
+            const response = await fetch('/chat', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ query: query })
+                body: JSON.stringify({ message: message })
             });
             const data = await response.json();
-            document.getElementById('response').innerText = data.sql_query;
+            document.getElementById('chatbox').innerHTML += `<p>User: ${message}</p>`;
+            document.getElementById('chatbox').innerHTML += `<p>Bot: ${data[0].text}</p>`;
         }
     </script>
+</head>
+<body>
+    <div id="chatbox"></div>
+    <input type="text" id="userInput" placeholder="Type your message here...">
+    <button onclick="sendMessage()">Send</button>
 </body>
 </html>

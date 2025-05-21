@@ -1,0 +1,36 @@
+2025-05-21 15:25:56,218 - h5py._conv - DEBUG - Creating converter from 7 to 5
+2025-05-21 15:25:56,218 - h5py._conv - DEBUG - Creating converter from 5 to 7
+2025-05-21 15:25:56,218 - h5py._conv - DEBUG - Creating converter from 7 to 5
+2025-05-21 15:25:56,218 - h5py._conv - DEBUG - Creating converter from 5 to 7
+2025-05-21 15:25:56,992 - jax._src.path - DEBUG - etils.epath was not found. Using pathlib for file I/O.
+2025-05-21 15:25:59,975 - root - INFO - Starting Rasa server on http://0.0.0.0:5005
+2025-05-21 15:26:01,196 - rasa.core.processor - INFO - Loading model models\20250521-150035-fixed-frog.tar.gz...
+2025-05-21 15:26:50,402 - root - INFO - Rasa server is up and running.
+2025-05-21 15:26:50,403 - root - INFO - Enabling coroutine debugging. Loop id 1384450291744.
+2025-05-21 15:35:20,967 - h5py._conv - DEBUG - Creating converter from 7 to 5
+2025-05-21 15:35:20,967 - h5py._conv - DEBUG - Creating converter from 5 to 7
+2025-05-21 15:35:20,967 - h5py._conv - DEBUG - Creating converter from 7 to 5
+2025-05-21 15:35:20,967 - h5py._conv - DEBUG - Creating converter from 5 to 7
+2025-05-21 15:35:21,624 - jax._src.path - DEBUG - etils.epath was not found. Using pathlib for file I/O.
+2025-05-21 15:35:24,775 - root - INFO - Starting Rasa server on http://0.0.0.0:5005
+2025-05-21 15:35:26,079 - rasa.core.processor - INFO - Loading model models\20250521-150035-fixed-frog.tar.gz...
+2025-05-21 15:36:09,057 - root - INFO - Rasa server is up and running.
+2025-05-21 15:36:09,057 - root - INFO - Enabling coroutine debugging. Loop id 1886835636976.
+2025-05-21 15:39:16,759 - h5py._conv - DEBUG - Creating converter from 7 to 5
+2025-05-21 15:39:16,759 - h5py._conv - DEBUG - Creating converter from 5 to 7
+2025-05-21 15:39:16,759 - h5py._conv - DEBUG - Creating converter from 7 to 5
+2025-05-21 15:39:16,759 - h5py._conv - DEBUG - Creating converter from 5 to 7
+2025-05-21 15:39:17,452 - jax._src.path - DEBUG - etils.epath was not found. Using pathlib for file I/O.
+2025-05-21 15:39:20,605 - root - INFO - Starting Rasa server on http://0.0.0.0:5005
+2025-05-21 15:39:21,703 - rasa.core.processor - INFO - Loading model models\20250521-150035-fixed-frog.tar.gz...
+2025-05-21 15:40:10,842 - root - INFO - Rasa server is up and running.
+2025-05-21 15:40:10,858 - root - INFO - Enabling coroutine debugging. Loop id 2341032884448.
+2025-05-21 15:43:44,136 - h5py._conv - DEBUG - Creating converter from 7 to 5
+2025-05-21 15:43:44,136 - h5py._conv - DEBUG - Creating converter from 5 to 7
+2025-05-21 15:43:44,136 - h5py._conv - DEBUG - Creating converter from 7 to 5
+2025-05-21 15:43:44,136 - h5py._conv - DEBUG - Creating converter from 5 to 7
+2025-05-21 15:43:45,139 - jax._src.path - DEBUG - etils.epath was not found. Using pathlib for file I/O.
+2025-05-21 15:43:49,413 - root - INFO - Starting Rasa server on http://0.0.0.0:5005
+2025-05-21 15:43:50,668 - rasa.core.processor - INFO - Loading model models\20250521-150035-fixed-frog.tar.gz...
+2025-05-21 15:44:40,668 - root - INFO - Rasa server is up and running.
+2025-05-21 15:44:40,668 - root - INFO - Enabling coroutine debugging. Loop id 2099560250096.

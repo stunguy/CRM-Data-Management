@@ -1,0 +1,144 @@
+version: "3.1"
+
+nlu:
+- intent: greet
+  examples: |
+    - hey
+    - hello
+    - hi
+    - hello there
+    - good morning
+    - good evening
+    - moin
+    - hey there
+    - let's go
+    - hey dude
+    - goodmorning
+    - goodevening
+    - good afternoon
+
+- intent: goodbye
+  examples: |
+    - cu
+    - good by
+    - cee you later
+    - good night
+    - bye
+    - goodbye
+    - have a nice day
+    - see you around
+    - bye bye
+    - see you later
+
+- intent: affirm
+  examples: |
+    - yes
+    - y
+    - indeed
+    - of course
+    - that sounds good
+    - correct
+
+- intent: deny
+  examples: |
+    - no
+    - n
+    - never
+    - I don't think so
+    - don't like that
+    - no way
+    - not really
+
+- intent: mood_great
+  examples: |
+    - perfect
+    - great
+    - amazing
+    - feeling like a king
+    - wonderful
+    - I am feeling very good
+    - I am great
+    - I am amazing
+    - I am going to save the world
+    - super stoked
+    - extremely good
+    - so so perfect
+    - so good
+    - so perfect
+
+- intent: mood_unhappy
+  examples: |
+    - my day was horrible
+    - I am sad
+    - I don't feel very well
+    - I am disappointed
+    - super sad
+    - I'm so sad
+    - sad
+    - very sad
+    - unhappy
+    - not good
+    - not very good
+    - extremly sad
+    - so saad
+    - so sad
+
+- intent: bot_challenge
+  examples: |
+    - are you a bot?
+    - are you a human?
+    - am I talking to a bot?
+    - am I talking to a human?
+
+- intent: ask_product_count
+    examples: |
+      - How many items do I currently own?
+      - What's my product count?
+      - Tell me how many products I have.
+      - Can you check how many items I’ve got?
+      - How many things are in my inventory?
+      - What’s the total number of my products?
+      - Count my products.
+      - Can you tell me how many products I own?
+      - I need a count of my products.
+      - How many products are associated with my account?
+      - Do I have a lot of products?
+      - How many products do I have right now?
+      - What’s in my inventory?
+      - Check how many products I’ve saved.
+      - What’s the quantity of products I have?
+      - What’s my current product total?
+      - Give me a count of my stored products.
+      - I want to know how many products I’ve got.
+      - List the number of products linked to me.
+      - Tell me my product total.
+      - Am I storing any products?
+      - Can you list how many items are on my account?
+      - Show me how many products I have.
+      - Count all products I’ve added.
+      - Are there many products in my profile?
+      - How big is my product list?
+      - Can I see my product count?
+      - How many goods are linked to my profile?
+      - What’s the number of products under my name?
+      - Can you display the number of my items?
+      - Give me my product inventory size.
+      - How many stock items do I own?
+      - Fetch my product count.
+      - Show my inventory quantity.
+      - Give me the number of products on record.
+      - How many entries are in my product list?
+      - Return the total number of products in my inventory.
+      - What’s the size of my inventory?
+      - How many SKUs are in my system?
+      - What's the quantity of products in my dashboard?
+      - Hey, how many products do I have?
+      - Quick question—what’s my product count?
+      - Can you tell me my total items?
+      - Do you know how many products I’ve got?
+      - What’s my product situation?
+      - Just wondering—how many products do I have?
+      - Count up my products for me.
+      - How many things have I added?
+      - Can you look up my item count?
+      - What’s the number of products I’ve put in?

@@ -23,6 +23,7 @@
             <li><a href="{{ url_for('customers') }}">Customers</a></li>
             <li><a href="{{ url_for('employees') }}">Employees</a></li>
             <li><a href="{{ url_for('spares') }}">Spares</a></li>
+            <li><a href="{{ url_for('chat') }}">chat</a></li>
             <li><a href="{{ url_for('service_data') }}">Service Records</a></li>
             <li><a href="{{ url_for('export') }}">Export Data to Google Drive</a></li>
             <li class="dropdown">
@@ -154,7 +155,33 @@
                 {% endif %}
             </div>
         </div>
+        <!-- Add this within your existing HTML structure -->
+        <div id="chatbot-container" style="border: 1px solid #ccc; padding: 10px; width: 300px;">
+            <div id="chatbox" style="height: 200px; overflow-y: auto; border-bottom: 1px solid #ccc; margin-bottom: 10px;">
+                <!-- Chat messages will appear here -->
+            </div>
+            <input type="text" id="userInput" placeholder="Type your message here..." style="width: 80%;">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+
     </main>
+    <script>
+    async function sendMessage() {
+        const message = document.getElementById('userInput').value;
+        const response = await fetch('/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ message: message })
+        });
+        const data = await response.json();
+        document.getElementById('chatbox').innerHTML += `<p><strong>User:</strong> ${message}</p>`;
+        document.getElementById('chatbox').innerHTML += `<p><strong>Bot:</strong> ${data[0].text}</p>`;
+        document.getElementById('userInput').value = ''; // Clear input field
+    }
+</script>
+
 </body>
 
 </html>

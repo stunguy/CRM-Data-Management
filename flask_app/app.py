@@ -12,11 +12,15 @@ import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
+import openai
+from rasa_sdk import Action, Tracker
+from rasa_sdk.executor import CollectingDispatcher
+from chatbot import get_chatbot_response
 
 app = Flask(__name__)
 
 # Initialize OpenAI API#
-#openai.api_key = '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'
+openai.api_key = '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'
 
 
 # Configuration for Flask-Mail
@@ -36,16 +40,61 @@ hash_value = hashlib.sha256(random_string).hexdigest()
 # Set the hash value as the secret key
 app.secret_key = hash_value
 
-with open('C:/Users/tdhamodaran/flask_app/key/credentials.json') as json_file:
+with open('C:/Users/vijig/Documents/GitHub/CRM-Data-Management/flask_app/key/credentials.json') as json_file:
     credentials_info = json.load(json_file)
     credentials = service_account.Credentials.from_service_account_info(
     credentials_info,
     scopes=['https://www.googleapis.com/auth/drive.file']
 )
+    
+
+class ActionGenerateSQLQuery(Action):
+    def name(self):
+        return "action_generate_sql_query"
+
+    def run(self, dispatcher: CollectingDispatcher,
+            tracker: Tracker,
+            domain: dict):
+        
+        # Get the latest user message
+        user_message = tracker.latest_message.get('text')
+
+        # Use OpenAI API to generate SQL query
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=f"Generate an SQL query for: {user_message}",
+            max_tokens=150
+        )
+
+        # Extract the generated SQL query
+        generated_query = response.choices[0].text.strip()
+
+        # Connect to SQLite database
+        conn = sqlite3.connect('your_database.db')
+        cursor = conn.cursor()
+
+        try:
+            # Execute the generated query
+            cursor.execute(generated_query)
+            results = cursor.fetchall()
+
+            # Format the response
+            response = "Here are the results:\n"
+            for row in results:
+                response += f"{row}\n"
+
+            dispatcher.utter_message(text=response)
+
+        except sqlite3.Error as e:
+            dispatcher.utter_message(text=f"An error occurred: {e}")
+
+        conn.close()
+        return []
+    
 
 # Function to connect to the SQLite database
 def get_db_connection():
-    conn = sqlite3.connect('C:/Users/tdhamodaran/sqliteDB/Retex.db')
+    conn = sqlite3.connect('C:/Users/vijig/Documents/GitHub/CRM-Data-Management/Retex.db')
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA journal_mode=WAL;')
     return conn
@@ -66,6 +115,7 @@ def get_data_for_service_graph():
     # Close the connection
     conn.close()
     return data
+
 
 def create_service_graph(data):
     # Convert the list of tuples into a DataFrame
@@ -176,6 +226,12 @@ def home():
     open_Calls = get_open_calls()  # Fetch top customers data
     # product_graph = create_product_graph(product_data)
     return render_template('home.html' , graph=graph,product_service_data=product_service_data,top_product_data=top_product_data,top_customers=top_customers,open_Calls=open_Calls)
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_message= request.json.get("message")
+    response= get_chatbot_response(user_message)
+    return jsonify(response)
 
 #Products
 @app.route('/products', methods=['GET'])
