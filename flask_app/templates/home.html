@@ -23,7 +23,6 @@
             <li><a href="{{ url_for('customers') }}">Customers</a></li>
             <li><a href="{{ url_for('employees') }}">Employees</a></li>
             <li><a href="{{ url_for('spares') }}">Spares</a></li>
-            <li><a href="{{ url_for('chat') }}">chat</a></li>
             <li><a href="{{ url_for('service_data') }}">Service Records</a></li>
             <li><a href="{{ url_for('export') }}">Export Data to Google Drive</a></li>
             <li class="dropdown">
@@ -181,7 +180,26 @@
         document.getElementById('userInput').value = ''; // Clear input field
     }
 </script>
+<input type="text" id="query" placeholder="Enter your query">
+    <button onclick="searchGuide()">Search</button>
+    <div id="result"></div>
 
+    <script>
+        function searchGuide() {
+            const query = document.getElementById('query').value;
+            fetch('/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerText = 'Best match: ' + data.best_match;
+            });
+        }
+    </script>
 </body>
 
 </html>
