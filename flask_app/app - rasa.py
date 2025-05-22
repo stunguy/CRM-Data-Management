@@ -16,11 +16,8 @@ import openai
 from rasa_sdk import Action, Tracker
 from rasa_sdk.executor import CollectingDispatcher
 from chatbot import get_chatbot_response
-import logging
 
 app = Flask(__name__)
-
-logging.basicConfig(level=logging.DEBUG)
 
 # Initialize OpenAI API#
 openai.api_key = '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'
@@ -62,7 +59,15 @@ class ActionGenerateSQLQuery(Action):
         # Get the latest user message
         user_message = tracker.latest_message.get('text')
 
-  
+        # Use OpenAI API to generate SQL query
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=f"Generate an SQL query for: {user_message}",
+            max_tokens=150
+        )
+
+        # Extract the generated SQL query
+        generated_query = response.choices[0].text.strip()
 
         # Connect to SQLite database
         conn = sqlite3.connect('your_database.db')
@@ -87,32 +92,12 @@ class ActionGenerateSQLQuery(Action):
         return []
     
 
-
-    
-# Use OpenAI API to generate SQL query
-def generate_sql_from_natural_language(natural_language_query):
-        response = openai.Completion.create(
-            engine="gpt-4o-mini",
-            prompt=f"I have product details in products table and customer details in customers table. Generate SQL Query based on user input: {natural_language_query}",
-            max_tokens=150
-        )
-        return response.choices[0].text.strip()
-
 # Function to connect to the SQLite database
 def get_db_connection():
     conn = sqlite3.connect('C:/Users/vijig/Documents/GitHub/CRM-Data-Management/Retex.db')
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA journal_mode=WAL;')
     return conn
-
-def query_database(sql_query):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    logging.debug(f"executing:{sql_query}")
-    cursor.execute(sql_query)
-    results = cursor.fetchall()
-    conn.close()
-    return results
 
 def get_data_for_service_graph():
     # Connect to the SQLite database
@@ -244,13 +229,9 @@ def home():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    user_input= request.json.get('query')
-    sql_query = generate_sql_from_natural_language(user_input)
-    if sql_query:
-        results=query_database(sql_query)
-        return jsonify(results)
-    else:
-        return jsonify({"error":"Could not understand the query"}),400
+    user_message= request.json.get("message")
+    response= get_chatbot_response(user_message)
+    return jsonify(response)
 
 #Products
 @app.route('/products', methods=['GET'])
