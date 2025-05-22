@@ -39,6 +39,13 @@ mail = Mail(app)
 model = SentenceTransformer('all-MiniLM-L6-v2')
 pdf_directory='C:/Users/vijig/Documents/GitHub/CRM-Data-Management/userfiles'
 
+# Function to connect to the SQLite database
+def get_db_connection():
+    conn = sqlite3.connect('C:/Users/vijig/Documents/GitHub/CRM-Data-Management/Retex.db')
+    conn.row_factory = sqlite3.Row
+    conn.execute('PRAGMA journal_mode=WAL;')
+    return conn
+
 def extract_data_from_pdfs(pdf_directory):
     pdf_texts = {}
     for file_name in os.listdir(pdf_directory):
@@ -53,17 +60,27 @@ def extract_data_from_pdfs(pdf_directory):
                 pdf_texts[file_name] = text
     return pdf_texts
 
-
-pdf_texts=extract_data_from_pdfs(pdf_directory)
-
-
-
 def convert_texts_to_vectors(texts):
     return{file_name:model.encode(text) for file_name,text in texts.items()}
 
+def store_vectors_in_db(pdf_vectors):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS product_vectors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            file_name TEXT,
+            vector BLOB
+        )
+    ''')
+    for file_name, vector in pdf_vectors.items():
+        cursor.execute("INSERT INTO product_vectors (file_name, vector) VALUES (?, ?)", (file_name, vector.tobytes()))
+    conn.commit()
+    conn.close()
+
 pdf_texts = extract_data_from_pdfs(pdf_directory)
 pdf_vectors=convert_texts_to_vectors(pdf_texts)
-print(pdf_vectors)
+store_vectors_in_db(pdf_vectors)
 
 # Generate a random string and hash it
 random_string = os.urandom(32)
@@ -122,29 +139,6 @@ class ActionGenerateSQLQuery(Action):
 
         conn.close()
         return []
-    
-
-# Function to connect to the SQLite database
-def get_db_connection():
-    conn = sqlite3.connect('C:/Users/vijig/Documents/GitHub/CRM-Data-Management/Retex.db')
-    conn.row_factory = sqlite3.Row
-    conn.execute('PRAGMA journal_mode=WAL;')
-    return conn
-
-def store_vectors_in_db(pdf_vectors):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS product_vectors (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            file_name TEXT,
-            vector BLOB
-        )
-    ''')
-    for file_name, vector in pdf_vectors.items():
-        cursor.execute("INSERT INTO product_vectors (file_name, vector) VALUES (?, ?)", (file_name, vector.tobytes()))
-    conn.commit()
-    conn.close()
 
 def get_data_for_service_graph():
     # Connect to the SQLite database
@@ -162,7 +156,6 @@ def get_data_for_service_graph():
     # Close the connection
     conn.close()
     return data
-
 
 def create_service_graph(data):
     # Convert the list of tuples into a DataFrame
@@ -260,9 +253,6 @@ def get_open_calls():
         conn.close()
     return open_calls
 
-# Route for pages
-
-
 @app.route('/search', methods=['POST'])
 def search():
     try :
@@ -308,8 +298,6 @@ def find_similar_product(query):
     except Exception as e:
         print (f"error in find_similar_product:{e}")
         return None
-
-
 
 # if __name__ == '__main__':
 #     app.run(port=5000,debug= True)
