@@ -21,6 +21,12 @@ from sentence_transformers import SentenceTransformer
 import os
 import numpy as np
 import re
+import logging
+import nltk
+nltk.download('punkt')
+nltk.download('punkt_tab')
+from nltk.tokenize import sent_tokenize
+
 
 app = Flask(__name__)
 
@@ -54,101 +60,80 @@ def extract_data_from_pdfs(pdf_directory):
             file_path = os.path.join(pdf_directory, file_name)
             with open(file_path, 'rb') as file:
                 reader = pypdf.PdfReader(file)
-                text = ''
-                for page in reader.pages:
-                    text += page.extract_text() + '\n'
-                pdf_texts[file_name] = text
+                for page_number, page in enumerate(reader.pages):
+                 text = page.extract_text()
+                 if text:
+                     pdf_texts[f"{file_name}_page_{page_number}"] = text
+                 else:
+                     print(f"No text found")
     return pdf_texts
 
-def segment_text (text, max_sentences=5):
-    paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
-    chunks = []
+def split_text_into_chunks(text):
+    return sent_tokenize (text)
 
-    for para in paragraphs:
-        sentences = re.split(r'(?<=[.!?]) +', para)
-        for i in range(0, len(sentences), max_sentences):
-            chunk = ' '.join(sentences[i:i+max_sentences])
-            if chunk:
-                chunks.append(chunk)
+def convert_chunks_to_vectors(texts):
+    chunk_vectors ={}
+    for page_name, text in texts.items():
+        chunks = split_text_into_chunks(text)
+        for i, chunk in enumerate(chunks):
+            vector = model.encode(chunk)
+            chunk_vectors[f"{page_name}_chunk_{i}"] = (vector, chunk)
+    return chunk_vectors
 
-    return chunks
+pdf_texts = extract_data_from_pdfs(pdf_directory)
+chunked_texts = {k: split_text_into_chunks(v) for k, v in pdf_texts.items()}
+chunk_vectors = convert_chunks_to_vectors(chunked_texts)
 
-def convert_texts_to_vectors(texts):
-    segmented_texts ={}
-    for file_name, text in texts.items():
-        segments = segment_text(text)
-        for i, segment in enumerate(segments):
-            segment_name = f"{file_name}_segment_{i}"
-            segmented_texts[segment_name]=(model.encode(segment),segment)
-    return segmented_texts
-
-def store_vectors_in_db(pdf_vectors,pdf_texts):
+def create_chunk_vectors_table():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS product_vectors (
+        CREATE TABLE IF NOT EXISTS chunk_vectors (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            segment_name TEXT,
+            chunk_name TEXT,
             vector BLOB,
             content TEXT
         )
     ''')
-    for segment_name, (vector,content) in pdf_vectors.items():
-        cursor.execute("INSERT INTO product_vectors (segment_name, vector,content) VALUES (?, ?, ?)", (segment_name, vector.tobytes(), content))
+    conn.commit()
+    conn.close()
+
+create_chunk_vectors_table() 
+
+def store_vectors_in_db(chunk_vectors):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    for chunk_name, (vector,content) in chunk_vectors.items():
+        cursor.execute("INSERT INTO chunk_vectors (chunk_name, vector,content) VALUES (?, ?, ?)", (chunk_name, vector.tobytes(), content))
     conn.commit()
     conn.close()
 
 def cosine_similarity(v1, v2):
-  try:
     dot_product = np.dot(v1, v2)
     norm_a = np.linalg.norm(v1)
     norm_b = np.linalg.norm(v2)
     if norm_a == 0 or norm_b == 0:
         return 0.0
-    return dot_product / (norm_a * norm_b)
-  except Exception as e:
-      print(f"Error in cosine_similarity: {e}")
-      return 0.0
-
-#def find_similar_product(query, top_n=1):
-def find_similar_product(query):
-    try:
-        query_vector = model.encode([query])[0]
+    return dot_product/ (norm_a * norm_b)
+   
+def find_similar_chunk(query, model, top_n=1):
+        query_vector = model.encode(query)
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT segment_name, vector,content FROM product_vectors")
-        products = cursor.fetchall() 
+        cursor.execute("SELECT chunk_name, vector,content FROM chunk_vectors")
+        results = []
+        for row in cursor.fetchall():
+            chunk_name, vectoe_blob, content = row
+            vector = np.frombuffer(vectoe_blob, dtype=np.float32)
+            similarity  = cosine_similarity (query_vector, vector)
+            results.append((chunk_name,similarity,content))
 
+
+        results.sort(key=lambda x: x[1], reverse=True)
+        return results[:top_n]      
         
-        best_similarity = -np.inf
-        best_match_content = None
-        #similarities =[]
 
-        
-        for segment_name, vector_blob, content in products:
-            vector = np.frombuffer(vector_blob, dtype=np.float32)
-            similarity = cosine_similarity(query_vector, vector)
-           ## similarities.append((segment_name,similarity,content))
-           
-            if similarity > best_similarity:
-                best_similarity = similarity
-                best_match_content = content
 
-        #sorted_products = sorted(similarities, key=lambda x: x[1], reverse=True)
-        #top_n_results = sorted_products[:top_n]
-        
-        ##similarities.sort(reverse=True, key=lambda x:x[0])
-        conn.close()
-        #return [content for _,_, content in similarities[:top_n]]
-        return best_match_content
-    
-    except Exception as e:
-        print (f"error in find_similar_content:{e}")
-        return None
-
-pdf_texts = extract_data_from_pdfs(pdf_directory)
-pdf_vectors=convert_texts_to_vectors(pdf_texts)
-store_vectors_in_db(pdf_vectors,pdf_texts)
 
 # Generate a random string and hash it
 random_string = os.urandom(32)
@@ -320,21 +305,18 @@ def get_open_calls():
         conn.close()
     return open_calls
 
-@app.route('/search', methods=['POST'])
+@app.route('/search', methods=['GET','POST'])
 def search():
     try :
         user_query = request.json.get('query')
         if not user_query :
             return jsonify({"error": "No query provided"}),400
 
-        best_match = find_similar_product(user_query)
+        best_match = find_similar_chunk( user_query ,model)
         return jsonify({"best_match": best_match})
     except Exception as e:
         print(f"Error in /seach route: {e}")
         return jsonify({"Error": "Internal server error"}),500
-
-
-
 
 
 # if __name__ == '__main__':
