@@ -349,22 +349,35 @@ tr:nth-child(even) {
 
 
     #chatbot-container {
-        position: fixed;
-        bottom: 10px;
-        right: 10px;
-        background-color: white;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-    #chatbox {
-        font-family: Arial, sans-serif;
-        font-size: 14px;
-    }
-    #userInput {
-        border: 1px solid #ccc;
-        padding: 5px;
-    }
-    button {
-        padding: 5px 10px;
-        cursor: pointer;
-    }
+    position: fixed;
+    bottom: 0;
+    right: 20px;
+    width: 300px;
+    border: 1px solid #ccc;
+    background-color: white;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+   #chatbot-header {
+    background-color: #007bff;
+    color: white;
+    padding: 10px;
+    cursor: pointer;
+}
+
+#chatbox {
+    height: 200px;
+    overflow-y: auto;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+#chatbot-input {
+    padding: 10px;
+}
+
+#minimize-btn {
+    float: right;
+    cursor: pointer;
+}
 

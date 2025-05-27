@@ -20,6 +20,7 @@ import pypdf
 from sentence_transformers import SentenceTransformer
 import os
 import numpy as np
+import re
 
 app = Flask(__name__)
 
@@ -55,32 +56,99 @@ def extract_data_from_pdfs(pdf_directory):
                 reader = pypdf.PdfReader(file)
                 text = ''
                 for page in reader.pages:
-                    text += page.extract_text()
-                vector = model.encode(text)
+                    text += page.extract_text() + '\n'
                 pdf_texts[file_name] = text
     return pdf_texts
 
-def convert_texts_to_vectors(texts):
-    return{file_name:model.encode(text) for file_name,text in texts.items()}
+def segment_text (text, max_sentences=5):
+    paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+    chunks = []
 
-def store_vectors_in_db(pdf_vectors):
+    for para in paragraphs:
+        sentences = re.split(r'(?<=[.!?]) +', para)
+        for i in range(0, len(sentences), max_sentences):
+            chunk = ' '.join(sentences[i:i+max_sentences])
+            if chunk:
+                chunks.append(chunk)
+
+    return chunks
+
+def convert_texts_to_vectors(texts):
+    segmented_texts ={}
+    for file_name, text in texts.items():
+        segments = segment_text(text)
+        for i, segment in enumerate(segments):
+            segment_name = f"{file_name}_segment_{i}"
+            segmented_texts[segment_name]=(model.encode(segment),segment)
+    return segmented_texts
+
+def store_vectors_in_db(pdf_vectors,pdf_texts):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS product_vectors (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            file_name TEXT,
-            vector BLOB
+            segment_name TEXT,
+            vector BLOB,
+            content TEXT
         )
     ''')
-    for file_name, vector in pdf_vectors.items():
-        cursor.execute("INSERT INTO product_vectors (file_name, vector) VALUES (?, ?)", (file_name, vector.tobytes()))
+    for segment_name, (vector,content) in pdf_vectors.items():
+        cursor.execute("INSERT INTO product_vectors (segment_name, vector,content) VALUES (?, ?, ?)", (segment_name, vector.tobytes(), content))
     conn.commit()
     conn.close()
 
+def cosine_similarity(v1, v2):
+  try:
+    dot_product = np.dot(v1, v2)
+    norm_a = np.linalg.norm(v1)
+    norm_b = np.linalg.norm(v2)
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot_product / (norm_a * norm_b)
+  except Exception as e:
+      print(f"Error in cosine_similarity: {e}")
+      return 0.0
+
+#def find_similar_product(query, top_n=1):
+def find_similar_product(query):
+    try:
+        query_vector = model.encode([query])[0]
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT segment_name, vector,content FROM product_vectors")
+        products = cursor.fetchall() 
+
+        
+        best_similarity = -np.inf
+        best_match_content = None
+        #similarities =[]
+
+        
+        for segment_name, vector_blob, content in products:
+            vector = np.frombuffer(vector_blob, dtype=np.float32)
+            similarity = cosine_similarity(query_vector, vector)
+           ## similarities.append((segment_name,similarity,content))
+           
+            if similarity > best_similarity:
+                best_similarity = similarity
+                best_match_content = content
+
+        #sorted_products = sorted(similarities, key=lambda x: x[1], reverse=True)
+        #top_n_results = sorted_products[:top_n]
+        
+        ##similarities.sort(reverse=True, key=lambda x:x[0])
+        conn.close()
+        #return [content for _,_, content in similarities[:top_n]]
+        return best_match_content
+    
+    except Exception as e:
+        print (f"error in find_similar_content:{e}")
+        return None
+
 pdf_texts = extract_data_from_pdfs(pdf_directory)
 pdf_vectors=convert_texts_to_vectors(pdf_texts)
-store_vectors_in_db(pdf_vectors)
+store_vectors_in_db(pdf_vectors,pdf_texts)
 
 # Generate a random string and hash it
 random_string = os.urandom(32)
@@ -95,8 +163,7 @@ with open('C:/Users/vijig/Documents/GitHub/CRM-Data-Management/flask_app/key/cre
     credentials_info,
     scopes=['https://www.googleapis.com/auth/drive.file']
 )
-    
-
+  
 class ActionGenerateSQLQuery(Action):
     def name(self):
         return "action_generate_sql_query"
@@ -266,38 +333,9 @@ def search():
         print(f"Error in /seach route: {e}")
         return jsonify({"Error": "Internal server error"}),500
 
-def cosine_similarity(v1, v2):
-  try:
-    dot_product = np.dot(v1, v2)
-    norm_a = np.linalg.norm(v1)
-    norm_b = np.linalg.norm(v2)
-    return dot_product / (norm_a * norm_b)
-  except Exception as e:
-      print(f"Error in cosine_similarity: {e}")
-      return 0
 
-def find_similar_product(query):
-    try:
-        query_vector = model.encode([query])[0]
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT file_name, vector FROM product_vectors")
-        products = cursor.fetchall() 
-        
-        best_match = None
-        best_similarity = -1
-        for file_name, vector_blob in products:
-            vector = np.frombuffer(vector_blob, dtype=np.float32)
-            similarity = cosine_similarity(query_vector, vector)
-            if similarity > best_similarity:
-                best_similarity = similarity
-                best_match = file_name
-        
-        conn.close()
-        return best_match
-    except Exception as e:
-        print (f"error in find_similar_product:{e}")
-        return None
+
+
 
 # if __name__ == '__main__':
 #     app.run(port=5000,debug= True)
