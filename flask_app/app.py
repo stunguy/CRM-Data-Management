@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file,flash,jsonify
+from flask import Flask, render_template, request, redirect, url_for, send_file, flash, jsonify
 from flask_mail import Mail, Message
 from werkzeug.exceptions import abort
 import sqlite3
@@ -23,30 +23,27 @@ import numpy as np
 import re
 import logging
 import nltk
-nltk.download('punkt')
-nltk.download('punkt_tab')
-from nltk.tokenize import sent_tokenize
 
+nltk.download('punkt')
+from nltk.tokenize import sent_tokenize
 
 app = Flask(__name__)
 
-# Initialize OpenAI API#
+# Initialize OpenAI API
 openai.api_key = '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'
 
-
 # Configuration for Flask-Mail
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Replace with your SMTP server
-app.config['MAIL_PORT'] = 587  # Common port for SMTP
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'thilipdhamodaran@gmail.com'  # Replace with your email
+app.config['MAIL_USERNAME'] = 'thilipdhamodaran@gmail.com'
 app.config['MAIL_PASSWORD'] = 'cuxn quqw amoe xwrq'
 app.config['MAIL_DEFAULT_SENDER'] = 'thilipdhamodaran@gmail.com'
 mail = Mail(app)
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
-pdf_directory='C:/Users/vijig/Documents/GitHub/CRM-Data-Management/userfiles'
+pdf_directory = 'C:/Users/vijig/Documents/GitHub/CRM-Data-Management/userfiles'
 
-# Function to connect to the SQLite database
 def get_db_connection():
     conn = sqlite3.connect('C:/Users/vijig/Documents/GitHub/CRM-Data-Management/Retex.db')
     conn.row_factory = sqlite3.Row
@@ -61,26 +58,37 @@ def extract_data_from_pdfs(pdf_directory):
             with open(file_path, 'rb') as file:
                 reader = pypdf.PdfReader(file)
                 for page_number, page in enumerate(reader.pages):
-                 text = page.extract_text()
-                 if text:
-                     pdf_texts[f"{file_name}_page_{page_number}"] = text
-                 else:
-                     print(f"No text found")
+                    text = page.extract_text()
+                    if text is not None and text.strip() !="":
+                        pdf_texts[f"{file_name}_page_{page_number}"] = text
+                    else:
+                        print(f"No text found on page {page_number} of {file_name}")
     return pdf_texts
 
 def split_text_into_chunks(text):
-    return sent_tokenize (text)
+    if not isinstance(text, str):
+        print(f"Invalid Input type: {type(text)}. Expected a string")
+        raise TypeError("Expected a string for text splitting.")
+    return sent_tokenize(text)
 
 def convert_chunks_to_vectors(texts):
-    chunk_vectors ={}
+    chunk_vectors = {}
     for page_name, text in texts.items():
         chunks = split_text_into_chunks(text)
         for i, chunk in enumerate(chunks):
-            vector = model.encode(chunk)
-            chunk_vectors[f"{page_name}_chunk_{i}"] = (vector, chunk)
+            if isinstance(chunk, str):
+                vector = model.encode(chunk)
+                chunk_vectors[f"{page_name}_chunk_{i}"] = (vector, chunk)
+            else:
+                print(f"Skipping non-string chunk: {chunk}")
     return chunk_vectors
 
 pdf_texts = extract_data_from_pdfs(pdf_directory)
+for page_name, text in pdf_texts.items():
+    try:
+        chunks =  split_text_into_chunks
+    except TypeError as e:
+        print (f"error processing {page_name}:{e}")
 chunked_texts = {k: split_text_into_chunks(v) for k, v in pdf_texts.items()}
 chunk_vectors = convert_chunks_to_vectors(chunked_texts)
 
@@ -98,15 +106,21 @@ def create_chunk_vectors_table():
     conn.commit()
     conn.close()
 
-create_chunk_vectors_table() 
+create_chunk_vectors_table()
 
 def store_vectors_in_db(chunk_vectors):
     conn = get_db_connection()
     cursor = conn.cursor()
-    for chunk_name, (vector,content) in chunk_vectors.items():
-        cursor.execute("INSERT INTO chunk_vectors (chunk_name, vector,content) VALUES (?, ?, ?)", (chunk_name, vector.tobytes(), content))
+    for chunk_name, (vector, content) in chunk_vectors.items():
+        if isinstance(content, str) and isinstance(vector, np.ndarray):
+            cursor.execute("INSERT INTO chunk_vectors (chunk_name, vector, content) VALUES (?, ?, ?)",
+                           (chunk_name, vector.tobytes(), content))
+        else:
+            print(f"Skipping invalid data: {chunk_name}, {vector}, {content}")
     conn.commit()
     conn.close()
+
+store_vectors_in_db(chunk_vectors)
 
 def cosine_similarity(v1, v2):
     dot_product = np.dot(v1, v2)
@@ -114,26 +128,21 @@ def cosine_similarity(v1, v2):
     norm_b = np.linalg.norm(v2)
     if norm_a == 0 or norm_b == 0:
         return 0.0
-    return dot_product/ (norm_a * norm_b)
-   
+    return dot_product / (norm_a * norm_b)
+
 def find_similar_chunk(query, model, top_n=1):
-        query_vector = model.encode(query)
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT chunk_name, vector,content FROM chunk_vectors")
-        results = []
-        for row in cursor.fetchall():
-            chunk_name, vectoe_blob, content = row
-            vector = np.frombuffer(vectoe_blob, dtype=np.float32)
-            similarity  = cosine_similarity (query_vector, vector)
-            results.append((chunk_name,similarity,content))
-
-
-        results.sort(key=lambda x: x[1], reverse=True)
-        return results[:top_n]      
-        
-
-
+    query_vector = model.encode(query)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT chunk_name, vector, content FROM chunk_vectors")
+    results = []
+    for row in cursor.fetchall():
+        chunk_name, vector_blob, content = row
+        vector = np.frombuffer(vector_blob, dtype=np.float32)
+        similarity = cosine_similarity(query_vector, vector)
+        results.append((chunk_name, similarity, content))
+    results.sort(key=lambda x: x[1], reverse=True)
+    return results[:top_n]
 
 # Generate a random string and hash it
 random_string = os.urandom(32)
@@ -145,10 +154,10 @@ app.secret_key = hash_value
 with open('C:/Users/vijig/Documents/GitHub/CRM-Data-Management/flask_app/key/credentials.json') as json_file:
     credentials_info = json.load(json_file)
     credentials = service_account.Credentials.from_service_account_info(
-    credentials_info,
-    scopes=['https://www.googleapis.com/auth/drive.file']
-)
-  
+        credentials_info,
+        scopes=['https://www.googleapis.com/auth/drive.file']
+    )
+
 class ActionGenerateSQLQuery(Action):
     def name(self):
         return "action_generate_sql_query"
@@ -156,84 +165,56 @@ class ActionGenerateSQLQuery(Action):
     def run(self, dispatcher: CollectingDispatcher,
             tracker: Tracker,
             domain: dict):
-        
-        # Get the latest user message
         user_message = tracker.latest_message.get('text')
-
-        # Use OpenAI API to generate SQL query
         response = openai.Completion.create(
             engine="text-davinci-003",
             prompt=f"Generate an SQL query for: {user_message}",
             max_tokens=150
         )
-
-        # Extract the generated SQL query
         generated_query = response.choices[0].text.strip()
-
-        # Connect to SQLite database
         conn = sqlite3.connect('your_database.db')
         cursor = conn.cursor()
-
         try:
-            # Execute the generated query
             cursor.execute(generated_query)
             results = cursor.fetchall()
-
-            # Format the response
             response = "Here are the results:\n"
             for row in results:
                 response += f"{row}\n"
-
             dispatcher.utter_message(text=response)
-
         except sqlite3.Error as e:
             dispatcher.utter_message(text=f"An error occurred: {e}")
-
         conn.close()
         return []
 
 def get_data_for_service_graph():
-    # Connect to the SQLite database
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Execute a query to retrieve data
     cursor.execute("""
-    SELECT  status,strftime('%m', issue_date) AS issue_month, COUNT(status) AS status_count 
-     FROM  service_data WHERE strftime('%Y', issue_date) = '2024' AND status <> 'Closed'
-    GROUP BY status,strftime('%m', issue_date);""")
-    
-    # Fetch all results as a list of tuples
+    SELECT status, strftime('%m', issue_date) AS issue_month, COUNT(status) AS status_count
+    FROM service_data WHERE strftime('%Y', issue_date) = '2024' AND status <> 'Closed'
+    GROUP BY status, strftime('%m', issue_date);
+    """)
     data = cursor.fetchall()
-    # Close the connection
     conn.close()
     return data
 
 def create_service_graph(data):
-    # Convert the list of tuples into a DataFrame
     df = pd.DataFrame(data, columns=['status', 'issue_month', 'status_count'])
-    # Create a bar chart
     fig = px.bar(df, x='issue_month', y='status_count', color='status', title='Open Service calls per Month')
-    # Return the HTML representation of the graph
     return fig.to_html(full_html=False)
 
 def get_data_for_products_table():
-    # Connect to the SQLite database
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Execute a query to retrieve data
-    cursor.execute(""" SELECT p.product_name || '-' || p.model_number AS product_info, 
-        COUNT(*) AS product_count FROM service_data s 
+    cursor.execute("""
+    SELECT p.product_name || '-' || p.model_number AS product_info,
+    COUNT(*) AS product_count FROM service_data s
     INNER JOIN customer_product cp on cp.customer_product_id=s.customer_product_id
-    inner join products p ON cp.product_id = p.product_id
+    INNER JOIN products p ON cp.product_id = p.product_id
     GROUP BY product_info, p.model_number
     ORDER BY product_count DESC LIMIT 10;
     """)
-    
-    # Fetch all results as a list of tuples
     data = cursor.fetchall()
-    # Close the connection
     conn.close()
     return data
 
@@ -245,19 +226,14 @@ def fetch_data(query):
     return data
 
 def get_data_for_top_products_table():
-    # Connect to the SQLite database
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Execute a query to retrieve data
-    cursor.execute(""" SELECT p.product_name || '-' || p.model_number  as product_info,count(cp.customer_id) as Customers_using 
-from products p inner join customer_product cp on p.product_id=cp.product_id
-                   order by Customers_using desc limit 10;
+    cursor.execute("""
+    SELECT p.product_name || '-' || p.model_number AS product_info, count(cp.customer_id) AS Customers_using
+    FROM products p INNER JOIN customer_product cp ON p.product_id=cp.product_id
+    ORDER BY Customers_using DESC LIMIT 10;
     """)
-    
-    # Fetch all results as a list of tuples
     data = cursor.fetchall()
-    # Close the connection
     conn.close()
     return data
 
@@ -266,8 +242,8 @@ def get_top_customers():
     cursor = conn.cursor()
     try:
         query = """
-       SELECT c.customer_id, c.customer_name, COUNT(cp.product_id) AS product_count,
-               GROUP_CONCAT(p.product_name, ', ') AS product_names
+        SELECT c.customer_id, c.customer_name, COUNT(cp.product_id) AS product_count,
+        GROUP_CONCAT(p.product_name, ', ') AS product_names
         FROM customers c
         JOIN customer_product cp ON c.customer_id = cp.customer_id
         JOIN products p ON cp.product_id = p.product_id
@@ -289,12 +265,13 @@ def get_open_calls():
     cursor = conn.cursor()
     try:
         query = """
-       select c.customer_name,p.product_name,p.model_number,
-    sd.issue_date,sd.status,sd.is_warranty from service_data sd  inner join customer_product cp on cp.customer_product_id=sd.customer_product_id  
-    inner join customers c on c.customer_id=cp.customer_id inner join
-    products p on p.product_id=cp.product_id inner join
-    employees e on e.employee_id=sd.assigned_to
-    where status<>'Closed'
+        SELECT c.customer_name, p.product_name, p.model_number,
+        sd.issue_date, sd.status, sd.is_warranty FROM service_data sd  
+        INNER JOIN customer_product cp ON cp.customer_product_id=sd.customer_product_id  
+        INNER JOIN customers c ON c.customer_id=cp.customer_id
+        INNER JOIN products p ON p.product_id=cp.product_id
+        INNER JOIN employees e ON e.employee_id=sd.assigned_to
+        WHERE status <> 'Closed'
         """
         cursor.execute(query)
         open_calls = cursor.fetchall()
@@ -305,22 +282,17 @@ def get_open_calls():
         conn.close()
     return open_calls
 
-@app.route('/search', methods=['GET','POST'])
+@app.route('/search', methods=['GET', 'POST'])
 def search():
-    try :
+    try:
         user_query = request.json.get('query')
-        if not user_query :
-            return jsonify({"error": "No query provided"}),400
-
-        best_match = find_similar_chunk( user_query ,model)
+        if not user_query:
+            return jsonify({"error": "No query provided"}), 400
+        best_match = find_similar_chunk(user_query, model)
         return jsonify({"best_match": best_match})
     except Exception as e:
-        print(f"Error in /seach route: {e}")
-        return jsonify({"Error": "Internal server error"}),500
-
-
-# if __name__ == '__main__':
-#     app.run(port=5000,debug= True)
+        print(f"Error in /search route: {e}")
+        return jsonify({"Error": "Internal server error"}), 500
 
 @app.route('/')
 def home():
@@ -328,28 +300,24 @@ def home():
     graph = create_service_graph(data)
     product_service_data = get_data_for_products_table()
     top_product_data = get_data_for_top_products_table()
-    top_customers = get_top_customers()  # Fetch top customers data
-    open_Calls = get_open_calls()  # Fetch top customers data
-    # product_graph = create_product_graph(product_data)
-    return render_template('home.html' , graph=graph,product_service_data=product_service_data,top_product_data=top_product_data,top_customers=top_customers,open_Calls=open_Calls)
+    top_customers = get_top_customers()
+    open_Calls = get_open_calls()
+    return render_template('home.html', graph=graph, product_service_data=product_service_data, top_product_data=top_product_data, top_customers=top_customers, open_Calls=open_Calls)
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    user_message= request.json.get("message")
-    response= get_chatbot_response(user_message)
+    user_message = request.json.get("message")
+    response = get_chatbot_response(user_message)
     return jsonify(response)
 
-#Products
 @app.route('/products', methods=['GET'])
 def products():
     search_query = request.args.get('search', '')
     show_all = request.args.get('show_all', 'false').lower() == 'true'
     conn = get_db_connection()
-    
     if conn is None:
         flash('Database connection failed!', 'error')
-        return render_template('error_page.html')  # Create an error page template
-
+        return render_template('error_page.html')
     cursor = conn.cursor()
     products = []
     try:
@@ -363,65 +331,49 @@ def products():
         flash(f'An error occurred: {str(e)}', 'error')
     finally:
         conn.close()
-
     return render_template('products/products.html', products=products, search=search_query, show_all=show_all)
 
 @app.route('/add_product', methods=('GET', 'POST'))
 def add_product():
     if request.method == 'POST':
-        product_name = request.form['product_name'] 
-        model_number = request.form['model_number'] 
+        product_name = request.form['product_name']
+        model_number = request.form['model_number']
         if not product_name or not model_number:
             flash('Product Name and Model Number are required!', 'error')
             return redirect(url_for('products'))
         conn = get_db_connection()
-        conn.execute('INSERT INTO products (product_name,model_number) VALUES (?,?)', (product_name,model_number))
+        conn.execute('INSERT INTO products (product_name, model_number) VALUES (?, ?)', (product_name, model_number))
         conn.commit()
         conn.close()
-    
         flash('New product added successfully!', 'success')
-        
     return render_template('products/add_product.html')
 
 @app.route('/product/<int:product_id>')
 def product_details(product_id):
     conn = get_db_connection()
-    # Query 1: Fetch product details
-    product_query = "SELECT product_id,product_name, model_number FROM products WHERE product_id = ?"
+    product_query = "SELECT product_id, product_name, model_number FROM products WHERE product_id = ?"
     product_data = conn.execute(product_query, (product_id,)).fetchone()
-    # Query 2: Count the number of services associated with the product
     service_count_query = """
-    SELECT COUNT(*) as service_count  FROM service_data WHERE customer_product_id in (SELECT customer_product_id FROM customer_product
-    WHERE product_id =?)
+    SELECT COUNT(*) as service_count FROM service_data WHERE customer_product_id in (SELECT customer_product_id FROM customer_product WHERE product_id = ?)
     """
     service_count_data = conn.execute(service_count_query, (product_id,)).fetchone()
-    # Query 3: List of customers using the product
     customers_query = """
-      SELECT customer_name FROM customers
-    WHERE customer_id in (SELECT customer_id FROM customer_product
-    WHERE product_id =?)
+    SELECT customer_name FROM customers WHERE customer_id in (SELECT customer_id FROM customer_product WHERE product_id = ?)
     """
     customers_data = conn.execute(customers_query, (product_id,)).fetchall()
-    print("Product Data:", product_data)
-    print("Service Count Data:", service_count_data)
-    print("Customer Data:", customers_data)
     conn.close()
     if product_data is None:
         abort(404)
     return render_template('products/product_details.html', product=product_data, service_count=service_count_data, customers=customers_data)
-####End of Products##
 
-##Customers
 @app.route('/customers')
 def customers():
     search_query = request.args.get('search', '')
     show_all = request.args.get('show_all', 'false').lower() == 'true'
     conn = get_db_connection()
-    
     if conn is None:
         flash('Database connection failed!', 'error')
-        return render_template('error_page.html')  # Create an error page template
-
+        return render_template('error_page.html')
     cursor = conn.cursor()
     customers = []
     try:
