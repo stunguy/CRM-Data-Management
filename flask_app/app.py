@@ -264,8 +264,8 @@ def get_open_calls():
         conn.close()
     return open_calls
 
-@app.route('/chat', methods=['POST'])
-def chat():
+@app.route('/chat_storage', methods=['POST'])
+def chat_storage():
     user_input = request.json.get('message')
     response= chatbot_with_vector_context(user_input)
     return jsonify({'response': response})
@@ -298,8 +298,8 @@ def home():
     open_Calls = get_open_calls()
     return render_template('home.html', graph=graph, product_service_data=product_service_data, top_product_data=top_product_data, top_customers=top_customers, open_Calls=open_Calls)
 
-@app.route('/chat', methods=['POST'])
-def chat():
+@app.route('/chat_pdf', methods=['POST'])
+def chat_pdf():
     user_message = request.json.get("message")
     response = get_chatbot_response(user_message)
     return jsonify(response)

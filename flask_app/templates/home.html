@@ -187,7 +187,7 @@
 
 async function sendMessage() {
     const message = document.getElementById('userInput').value;
-    const response = await fetch('/chat', {
+    const response = await fetch('/chat_storage', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -203,7 +203,7 @@ async function sendMessage() {
 
 async function sendMessage() {
     const message= document.getElementById('userInput'.value);
-    const response = await fetch('/chatbot',{
+    const response = await fetch('/chat_pdf',{
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({message: message})
@@ -211,8 +211,8 @@ async function sendMessage() {
     const data=await response.json();
     document.getElementById('chatbotResponse').innerText = data.response;
 }
-<script>
-  
+    <script>
+    
 </body>
 
 </html>
