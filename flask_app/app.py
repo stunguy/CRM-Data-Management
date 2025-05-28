@@ -50,99 +50,81 @@ def get_db_connection():
     conn.execute('PRAGMA journal_mode=WAL;')
     return conn
 
-def extract_data_from_pdfs(pdf_directory):
-    pdf_texts = {}
-    for file_name in os.listdir(pdf_directory):
-        if file_name.endswith('.pdf'):
-            file_path = os.path.join(pdf_directory, file_name)
-            with open(file_path, 'rb') as file:
-                reader = pypdf.PdfReader(file)
-                for page_number, page in enumerate(reader.pages):
-                    text = page.extract_text()
-                    if text is not None and text.strip() !="":
-                        pdf_texts[f"{file_name}_page_{page_number}"] = text
-                    else:
-                        print(f"No text found on page {page_number} of {file_name}")
-    return pdf_texts
-
-def split_text_into_chunks(text):
-    if not isinstance(text, str):
-        print(f"Invalid Input type: {type(text)}. Expected a string")
-        raise TypeError("Expected a string for text splitting.")
-    return sent_tokenize(text)
-
-def convert_chunks_to_vectors(texts):
-    chunk_vectors = {}
-    for page_name, text in texts.items():
-        chunks = split_text_into_chunks(text)
-        for i, chunk in enumerate(chunks):
-            if isinstance(chunk, str):
-                vector = model.encode(chunk)
-                chunk_vectors[f"{page_name}_chunk_{i}"] = (vector, chunk)
-            else:
-                print(f"Skipping non-string chunk: {chunk}")
-    return chunk_vectors
-
-pdf_texts = extract_data_from_pdfs(pdf_directory)
-for page_name, text in pdf_texts.items():
+def extract_text_from_pdfs(pdf_directory):
     try:
-        chunks =  split_text_into_chunks
-    except TypeError as e:
-        print (f"error processing {page_name}:{e}")
-chunked_texts = {k: split_text_into_chunks(v) for k, v in pdf_texts.items()}
-chunk_vectors = convert_chunks_to_vectors(chunked_texts)
+        with open(pdf_directory, 'rb') as file:
+            reader = pypdf.PdfReader(file)
+            text = ""
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page.extract_text()
+            if not  text:
+                raise ValueError("No text extracted from PDF.")
+        return text
+    except Exception as e:
+        print (f"Error extracting PDF: {e}")
+        return None
 
-def create_chunk_vectors_table():
+
+def embed_text(text):
+    try:
+        embeddings = model.encode(text)
+        if embeddings is None:
+            raise ValueError ("Embedding returned None")
+        return embeddings
+    except Exception as e:
+        print(f"Error embedding text:{e}")
+        return None
+
+def store_embeddings_in_db(texts):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS chunk_vectors (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chunk_name TEXT,
-            vector BLOB,
-            content TEXT
-        )
-    ''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS EMBEDDINGS(
+                   ID INTEGER PRIMARY KEY,TEXT TEXT,EMBEDDING BLOB)''')
+
+    for text in texts:
+        embedding = embed_text(text).tobytes()
+        cursor.execute('INSERT INTO EMBEDDINGS(TEXT,EMBEDDING) VALUES (?,?)',(text,embedding))
+
     conn.commit()
     conn.close()
 
-create_chunk_vectors_table()
+def search_similar_texts(query):
+    query_embedding = embed_text(query)
 
-def store_vectors_in_db(chunk_vectors):
     conn = get_db_connection()
     cursor = conn.cursor()
-    for chunk_name, (vector, content) in chunk_vectors.items():
-        if isinstance(content, str) and isinstance(vector, np.ndarray):
-            cursor.execute("INSERT INTO chunk_vectors (chunk_name, vector, content) VALUES (?, ?, ?)",
-                           (chunk_name, vector.tobytes(), content))
-        else:
-            print(f"Skipping invalid data: {chunk_name}, {vector}, {content}")
-    conn.commit()
+    cursor.execute('SELECT TEXT , EMBEDDING FROM EMBEDDINGS')
+    results = cursor.fetchall()
+
+    if not results:
+        print ("No results in database")
+        return[]
+    
+    similarites = []
+    for text, embedding in results:
+        embedding = np.frombuffer(embedding,dtype=np.float32)
+        similarity = np.dot(query_embedding, embedding)/ (np.linalg(query_embedding) * np.linalg.norm(embedding))
+        similarities.append((text,similarity))
+
+    similarities.sort(key=lambda x: x[1], reverse=True)
     conn.close()
+    return [text for text, _ in similarities[:5]]
 
-store_vectors_in_db(chunk_vectors)
+def chatbot_with_vector_context(user_input):
+    similar_texts = search_similar_texts(user_input)
+    context = "\n".join(similar_texts)
+    prompt = f"{context}\n\nUser: {user_input}\nAI:"
 
-def cosine_similarity(v1, v2):
-    dot_product = np.dot(v1, v2)
-    norm_a = np.linalg.norm(v1)
-    norm_b = np.linalg.norm(v2)
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot_product / (norm_a * norm_b)
+    response = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt=prompt,
+        max_tokens=150
+    )
 
-def find_similar_chunk(query, model, top_n=1):
-    query_vector = model.encode(query)
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT chunk_name, vector, content FROM chunk_vectors")
-    results = []
-    for row in cursor.fetchall():
-        chunk_name, vector_blob, content = row
-        vector = np.frombuffer(vector_blob, dtype=np.float32)
-        similarity = cosine_similarity(query_vector, vector)
-        results.append((chunk_name, similarity, content))
-    results.sort(key=lambda x: x[1], reverse=True)
-    return results[:top_n]
+    answer= response.choices[0].text.strip()
+    return answer
 
 # Generate a random string and hash it
 random_string = os.urandom(32)
@@ -282,18 +264,30 @@ def get_open_calls():
         conn.close()
     return open_calls
 
-@app.route('/search', methods=['GET', 'POST'])
-def search():
-    try:
-        user_query = request.json.get('query')
-        if not user_query:
-            return jsonify({"error": "No query provided"}), 400
-        best_match = find_similar_chunk(user_query, model)
-        return jsonify({"best_match": best_match})
-    except Exception as e:
-        print(f"Error in /search route: {e}")
-        return jsonify({"Error": "Internal server error"}), 500
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_input = request.json.get('message')
+    response= chatbot_with_vector_context(user_input)
+    return jsonify({'response': response})
 
+def populate_db(pdf_directory):
+    texts = []
+
+    for filename in os.listdir(pdf_directory):
+        if filename.endswith('.pdf'):
+            pdf_directory = os.path.join(pdf_directory, filename)
+            text = extract_text_from_pdfs(pdf_directory)
+            if text:
+                texts.append(text)
+               
+    store_embeddings_in_db(texts)
+    
+
+@app.before_request
+def inititalize():
+    populate_db(pdf_directory)
+
+  
 @app.route('/')
 def home():
     data = get_data_for_service_graph()

@@ -165,6 +165,8 @@
         <input type="text" id="userInput" placeholder="Type your message here..." style="width: 80%;">
         <button onclick="sendMessage()">Send</button>
     </div>
+
+<script src="js/chatbot.js"></script>
 </div>
 
 </main>
@@ -198,28 +200,19 @@ async function sendMessage() {
     document.getElementById('chatbox').innerHTML += `<p><strong>Bot:</strong> ${data[0].text}</p>`;
     document.getElementById('userInput').value = ''; // Clear input field
 }
-<script>
-    </script>
-<input type="text" id="query" placeholder="Enter your query">
-    <button onclick="searchGuide()">Search</button>
-    <div id="result"></div>
 
-    <script>
-        function searchGuide() {
-            const query = document.getElementById('query').value;
-            fetch('/search', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ query: query })
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('result').innerText = 'Best match: ' + data.best_match;
-            });
-        }
-    </script>
+async function sendMessage() {
+    const message= document.getElementById('userInput'.value);
+    const response = await fetch('/chatbot',{
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: message})
+    });
+    const data=await response.json();
+    document.getElementById('chatbotResponse').innerText = data.response;
+}
+<script>
+  
 </body>
 
 </html>
