@@ -154,6 +154,15 @@
                 {% endif %}
             </div>
         </div>
+<div id="chatbot-input" style="padding: 10px;"> 
+    <select id="chatMode" style="margin-bottom: 5px;">
+        <option value="storage">Chat Storage</option> 
+        <option value="pdf">Chat PDF</option> 
+    </select> 
+    <br>
+    <input type="text" id="userInput" placeholder="Type your message here..." style="width: 80%;"> 
+    <button onclick="sendMessage()">Send</button> </div>
+</div>
 <div id="chatbot-container" style="position: fixed; bottom: 0; right: 20px; width: 300px; border: 1px solid #ccc; background-color: white; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
     <div id="chatbot-header" style="background-color: #007bff; color: white; padding: 10px; cursor: pointer;">
         Chatbot <span id="minimize-btn" style="float: right; cursor: pointer;">−</span>
@@ -162,57 +171,74 @@
         <!-- Chat messages will appear here -->
     </div>
     <div id="chatbot-input" style="padding: 10px;">
+        <select id="chatMode" style="margin-bottom: 5px;">
+            <option value="storage">Chat Storage</option>
+            <option value="pdf">Chat PDF</option>
+        </select>
+        <br>
         <input type="text" id="userInput" placeholder="Type your message here..." style="width: 80%;">
         <button onclick="sendMessage()">Send</button>
     </div>
-
-<script src="js/chatbot.js"></script>
 </div>
-
-</main>
-    <script>
-        document.getElementById('minimize-btn').addEventListener('click', function() {
-            const chatbox = document.getElementById('chatbox');
-            const chatbotInput = document.getElementById('chatbot-input');
-            if (chatbox.style.display === 'none') {
-                chatbox.style.display = 'block';
-                chatbotInput.style.display = 'block';
-                this.textContent = '−';
-    } else {
+<script>
+    document.getElementById('minimize-btn').addEventListener('click', function() {
+        const chatbox = document.getElementById('chatbox');
+        const chatbotInput = document.getElementById('chatbot-input');
+        if (chatbox.style.display === 'none') {
+            chatbox.style.display = 'block';
+            chatbotInput.style.display = 'block';
+            this.textContent = '−';
+        } else {
             chatbox.style.display = 'none';
             chatbotInput.style.display = 'none';
             this.textContent = '+';
+        }
+    });
+
+    // Unified sendMessage function
+    async function sendMessage() {
+        const message = document.getElementById('userInput').value;
+        const chatMode = document.getElementById('chatMode').value;
+        let endpoint = '';
+
+        if (chatMode === 'storage') {
+            endpoint = '/chat_storage';
+        } else if (chatMode === 'pdf') {
+            endpoint = '/chat_pdf';
+        }
+
+        if (!message.trim()) return;
+
+        document.getElementById('chatbox').innerHTML += `<p><strong>User:</strong> ${message}</p>`;
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ message: message })
+            });
+
+            const data = await response.json();
+
+            let botResponse = '';
+            if (chatMode === 'storage') {
+                botResponse = data[0]?.text || 'No response';
+            } else if (chatMode === 'pdf') {
+                botResponse = data.response || 'No response';
             }
-});
 
-async function sendMessage() {
-    const message = document.getElementById('userInput').value;
-    const response = await fetch('/chat_storage', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ message: message })
-    });
+            document.getElementById('chatbox').innerHTML += `<p><strong>Bot:</strong> ${botResponse}</p>`;
+            document.getElementById('userInput').value = '';
+            document.getElementById('chatbox').scrollTop = document.getElementById('chatbox').scrollHeight;
+        } catch (error) {
+            document.getElementById('chatbox').innerHTML += `<p><strong>Bot:</strong> Error communicating with server.</p>`;
+        }
+    }
+</script>
 
-    const data = await response.json();
-    document.getElementById('chatbox').innerHTML += `<p><strong>User:</strong> ${message}</p>`;
-    document.getElementById('chatbox').innerHTML += `<p><strong>Bot:</strong> ${data[0].text}</p>`;
-    document.getElementById('userInput').value = ''; // Clear input field
-}
 
-async function sendMessage() {
-    const message= document.getElementById('userInput'.value);
-    const response = await fetch('/chat_pdf',{
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({message: message})
-    });
-    const data=await response.json();
-    document.getElementById('chatbotResponse').innerText = data.response;
-}
-    <script>
-    
+</main>
+     
 </body>
 
 </html>
