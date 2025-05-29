@@ -102,10 +102,10 @@ def search_similar_texts(query):
         print ("No results in database")
         return[]
     
-    similarites = []
+    similarities = []
     for text, embedding in results:
         embedding = np.frombuffer(embedding,dtype=np.float32)
-        similarity = np.dot(query_embedding, embedding)/ (np.linalg(query_embedding) * np.linalg.norm(embedding))
+        similarity = np.dot(query_embedding, embedding)/ (np.linalg.norm(query_embedding) * np.linalg.norm(embedding))
         similarities.append((text,similarity))
 
     similarities.sort(key=lambda x: x[1], reverse=True)
@@ -116,10 +116,13 @@ def chatbot_with_vector_context(user_input):
     similar_texts = search_similar_texts(user_input)
     context = "\n".join(similar_texts)
     prompt = f"{context}\n\nUser: {user_input}\nAI:"
+    print(similar_texts)
 
-    response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=prompt,
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}],
         max_tokens=150
     )
 
@@ -264,7 +267,7 @@ def get_open_calls():
         conn.close()
     return open_calls
 
-@app.route('/chat_storage', methods=['POST'])
+@app.route('/chat_pdf', methods=['POST'])
 def chat_storage():
     user_input = request.json.get('message')
     response= chatbot_with_vector_context(user_input)
@@ -298,7 +301,7 @@ def home():
     open_Calls = get_open_calls()
     return render_template('home.html', graph=graph, product_service_data=product_service_data, top_product_data=top_product_data, top_customers=top_customers, open_Calls=open_Calls)
 
-@app.route('/chat_pdf', methods=['POST'])
+@app.route('/chat_storage', methods=['POST'])
 def chat_pdf():
     user_message = request.json.get("message")
     response = get_chatbot_response(user_message)
