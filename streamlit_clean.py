@@ -1,8 +1,10 @@
 import streamlit as st
 from langchain.document_loaders import PyMuPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 import tempfile
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
+from langchain.schema import Document
 from openai import OpenAI
 import os
 import json
@@ -14,8 +16,56 @@ except ImportError:
 
 st.set_page_config(page_title="Retex Assistant", page_icon="🤖", layout="wide")
 
-st.title("🤖 Retex Assistant")
-st.markdown("*Your intelligent PDF document assistant*")
+# Custom CSS for professional styling
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1f2937;
+        text-align: center;
+        margin-bottom: 0.5rem;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .sub-header {
+        font-size: 1.1rem;
+        color: #6b7280;
+        text-align: center;
+        margin-bottom: 2rem;
+        font-style: italic;
+    }
+    .chat-container {
+        background-color: #f8fafc;
+        border-radius: 10px;
+        padding: 1rem;
+        border: 1px solid #e5e7eb;
+    }
+    .source-container {
+        background-color: #ffffff;
+        border-radius: 8px;
+        padding: 1rem;
+        border: 1px solid #d1d5db;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .stButton > button {
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .stSelectbox > div > div {
+        border-radius: 6px;
+    }
+    .upload-section {
+        background-color: #f0f9ff;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #bfdbfe;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<h1 class="main-header">🤖 Retex Assistant</h1>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">Your intelligent PDF document assistant</p>', unsafe_allow_html=True)
 
 # Configuration
 DB_FAISS_PATH = 'vectorstore/db_faiss'
@@ -55,6 +105,85 @@ def load_file_list():
             return []
     return []
 
+def filter_content(text):
+    """Filter out TOC, blank pages, and low-quality content"""
+    text = text.strip()
+    
+    # Skip if too short (likely blank or image-only)
+    if len(text) < 100:
+        return False
+    
+    # Skip table of contents patterns
+    toc_patterns = ['table of contents', 'contents', '........', '......', 
+                   'chapter', 'section', 'page']
+    text_lower = text.lower()
+    
+    # If mostly dots/numbers (TOC formatting)
+    if text.count('.') > len(text) * 0.3:
+        return False
+    
+    # If contains many TOC keywords
+    toc_count = sum(1 for pattern in toc_patterns if pattern in text_lower)
+    if toc_count >= 3 and len(text) < 500:
+        return False
+    
+    return True
+
+def is_table_content(text):
+    """Detect if content contains table data"""
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    table_indicators = 0
+    
+    # Look for table patterns
+    for line in lines:
+        if ('|' in line and line.count('|') >= 2) or \
+           ('\t' in line and line.count('\t') >= 2) or \
+           (len(line.split()) >= 3 and any(word.replace('.', '').replace(',', '').isdigit() for word in line.split())) or \
+           ('troubleshooting' in line.lower() and any(word in line.lower() for word in ['tip', 'solution', 'setting'])):
+            table_indicators += 1
+    
+    return table_indicators >= 1
+
+def create_smart_chunks(documents, filename):
+    """Create table-aware chunks preserving tabular data"""
+    filtered_docs = []
+    for doc in documents:
+        if filter_content(doc.page_content):
+            filtered_docs.append(doc)
+    
+    chunks = []
+    for doc in filtered_docs:
+        content = doc.page_content
+        
+        # Handle tables differently
+        if is_table_content(content):
+            # Keep tables as single chunks with larger size
+            if len(content.strip()) > 50:
+                chunk_doc = Document(
+                    page_content=content,
+                    metadata={**doc.metadata, 'source_file': filename, 'content_type': 'table'}
+                )
+                chunks.append(chunk_doc)
+        else:
+            # Regular text splitting
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=150,
+                separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""]
+            )
+            
+            split_docs = text_splitter.split_documents([doc])
+            for i, chunk in enumerate(split_docs):
+                if len(chunk.page_content.strip()) > 50:
+                    chunk.metadata.update({
+                        'source_file': filename,
+                        'chunk_id': i,
+                        'content_type': 'text'
+                    })
+                    chunks.append(chunk)
+    
+    return chunks
+
 # Initialize session state
 if 'db' not in st.session_state:
     st.session_state['db'] = load_existing_db()
@@ -69,7 +198,8 @@ if 'view_pdf' not in st.session_state:
 
 # Sidebar
 with st.sidebar:
-    st.header("📁 Document Management")
+    st.markdown("### 📁 Document Management")
+    st.markdown("---")
     
     # File upload
     uploaded_files = st.file_uploader("Upload PDF Files", type="pdf", accept_multiple_files=True)
@@ -96,10 +226,9 @@ with st.sidebar:
                             loader = PyMuPDFLoader(file_path=tmp_file_path)
                             data = loader.load()
                             
-                            for doc in data:
-                                doc.metadata['source_file'] = uploaded_file.name
-                            
-                            all_data.extend(data)
+                            # Apply smart chunking
+                            chunked_data = create_smart_chunks(data, uploaded_file.name)
+                            all_data.extend(chunked_data)
                             new_files.append(uploaded_file.name)
 
                     if all_data:
@@ -125,9 +254,9 @@ with st.sidebar:
     
     # Show stored files
     if st.session_state['stored_files']:
-        st.subheader("📚 Stored Documents")
+        st.markdown("#### 📚 Stored Documents")
         for file_name in st.session_state['stored_files']:
-            st.text(f"• {file_name}")
+            st.markdown(f"📄 **{file_name}**")
     
     # Clear button
     if st.session_state['db'] is not None:
@@ -153,10 +282,17 @@ def chat_with_pdf(query):
         return "Please upload PDF documents first."
     
     try:
-        docs = st.session_state['db'].similarity_search(query, k=2)
+        # Enhanced search for tables
+        docs = st.session_state['db'].similarity_search(query, k=6)
         st.session_state['last_sources'] = docs
         
-        context = "\n".join([doc.page_content[:1000] for doc in docs])
+        # Prioritize table content and combine related chunks
+        table_docs = [doc for doc in docs if doc.metadata.get('content_type') == 'table']
+        text_docs = [doc for doc in docs if doc.metadata.get('content_type') != 'table']
+        
+        # Combine table content first, then text
+        context_parts = [doc.page_content for doc in table_docs] + [doc.page_content for doc in text_docs[:3]]
+        context = "\n\n".join(context_parts)
         
         if len(context.strip()) < 50:
             return "Sorry, I can't find this information in the documents."
@@ -166,10 +302,10 @@ def chat_with_pdf(query):
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Answer only based on the provided context. If not found, say 'Sorry, I can't find this information in the documents.'"},
+                {"role": "system", "content": "Answer based only on the provided context. For tables or lists, include ALL items/rows mentioned. Present information in a clear, structured format."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=300,
+            max_tokens=400,
             temperature=0.1
         )
         
@@ -181,34 +317,39 @@ def chat_with_pdf(query):
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    st.header("💬 Chat")
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+    st.markdown("### 💬 AI Assistant")
     
-    # Display messages
-    for message in st.session_state['messages']:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
+    # Chat history container with scrolling
+    chat_container = st.container(height=450)
+    with chat_container:
+        if st.session_state['messages']:
+            for message in st.session_state['messages']:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+        else:
+            st.info("👋 **Welcome!** Upload documents and ask questions to get started.")
     
-    # Chat input
-    if prompt := st.chat_input("Ask about your documents..."):
-        # Add user message
+    # Chat input at bottom
+    if prompt := st.chat_input("💭 Ask me anything about your documents...", key="main_chat"):
         st.session_state['messages'].append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.write(prompt)
         
-        # Get AI response
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = chat_with_pdf(prompt)
-                st.write(response)
-                st.session_state['messages'].append({"role": "assistant", "content": response})
+        with st.spinner("🔍 Analyzing documents..."):
+            response = chat_with_pdf(prompt)
+        
+        st.session_state['messages'].append({"role": "assistant", "content": response})
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
+    st.markdown('<div class="source-container">', unsafe_allow_html=True)
     # PDF Viewer Controls
     if ('last_sources' in st.session_state and 
         len(st.session_state.get('last_sources', [])) > 0 and
         st.session_state['db'] is not None):
         
-        st.header("📄 View Sources")
+        st.markdown("### 📄 Document Sources")
         
         # Create source options
         source_options = ["Select a source..."]
@@ -236,19 +377,21 @@ with col2:
                 st.session_state['view_pdf'] = source_data[selected_source]
                 st.rerun()
     else:
-        st.header("📄 PDF Viewer")
-        st.info("Ask a question to see source documents here!")
+        st.markdown("### 📄 Document Viewer")
+        st.info("💡 Ask a question to see relevant source documents here!")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# PDF Display (full width at bottom)
+# PDF Display
 if st.session_state.get('view_pdf'):
     st.divider()
     pdf_info = st.session_state['view_pdf']
     
     col1, col2 = st.columns([4, 1])
     with col1:
-        st.subheader(f"📄 {pdf_info['file']} - Page {pdf_info['page']}")
+        st.markdown(f"### 📄 **{pdf_info['file']}** - Page {pdf_info['page']}")
     with col2:
-        if st.button("✖️ Close", key="close_pdf"):
+        if st.button("✖️ Close", key="close_pdf", type="secondary"):
             st.session_state['view_pdf'] = None
             st.rerun()
     
@@ -269,66 +412,27 @@ if st.session_state.get('view_pdf'):
             elif not isinstance(page_num, int):
                 page_num = 1
             
-            # Add offset to account for page numbering mismatch
-            page_offset = 2
-            page_index = max(0, page_num - 1 + page_offset)
+            # Correct page index (0-based)
+            page_index = max(0, page_num - 1)
             
             # Page navigation
             col1, col2, col3 = st.columns([1, 2, 1])
             with col1:
-                if st.button("⬅️ Previous", key="prev_page"):
-                    new_page = max(1, page_num - 1)
-                    st.session_state['view_pdf']['page'] = new_page
+                if st.button("⬅️ Previous", key="prev_page", disabled=page_num <= 1):
+                    st.session_state['view_pdf']['page'] = page_num - 1
                     st.rerun()
             with col2:
-                st.write(f"Page {page_num} of {len(doc)}")
+                st.markdown(f"<div style='text-align: center; padding: 8px; font-weight: 500;'>Page **{page_num}** of **{len(doc)}**</div>", unsafe_allow_html=True)
             with col3:
-                if st.button("➡️ Next", key="next_page"):
-                    new_page = min(len(doc), page_num + 1)
-                    st.session_state['view_pdf']['page'] = new_page
+                if st.button("➡️ Next", key="next_page", disabled=page_num >= len(doc)):
+                    st.session_state['view_pdf']['page'] = page_num + 1
                     st.rerun()
             
             if page_index < len(doc):
                 page = doc[page_index]
-                
-                # Search for text and auto-correct page if needed
-                full_text = pdf_info['text'].replace('\n', ' ').strip()
-                words = full_text.split()
-                meaningful_words = []
-                
-                for word in words:
-                    if (not word.replace('-', '').replace('.', '').isdigit() and
-                        len(word) > 2 and
-                        not word.isupper() or word in ['KNIT', 'SCAN']):
-                        meaningful_words.append(word)
-                    if len(meaningful_words) >= 8:
-                        break
-                
-                if len(meaningful_words) < 3:
-                    search_phrase = ' '.join(words[10:18]) if len(words) > 10 else ' '.join(words[:8])
-                else:
-                    search_phrase = ' '.join(meaningful_words)
-                
-                # Search all pages for this text
-                found_pages = []
-                for page_idx in range(len(doc)):
-                    test_page = doc[page_idx]
-                    page_text = test_page.get_text()
-                    page_text_clean = page_text.lower().replace('\n', ' ')
-                    if (search_phrase.lower() in page_text_clean or
-                        any(word.lower() in page_text_clean for word in meaningful_words[-3:]) or
-                        any(word.lower() in page_text_clean for word in meaningful_words[:3])):
-                        found_pages.append(page_idx + 1)
-                
-                if found_pages and page_num not in found_pages:
-                    correct_page = found_pages[0]
-                    st.session_state['view_pdf']['page'] = correct_page
-                    st.rerun()
-                
                 # Render page as image
                 pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
                 img_data = pix.tobytes("png")
-                
                 st.image(img_data, use_container_width=True)
             else:
                 st.error(f"Page {page_num} not found in PDF")
@@ -342,7 +446,9 @@ if st.session_state.get('view_pdf'):
 
 # Clear chat button
 if st.session_state['messages']:
-    st.divider()
-    if st.button("🔄 Clear Chat History", key="clear_chat"):
-        st.session_state['messages'] = []
-        st.rerun()
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("🔄 Clear Chat History", key="clear_chat", type="secondary"):
+            st.session_state['messages'] = []
+            st.rerun()
